@@ -1,0 +1,64 @@
+
+config_torque_server_check_post () {
+
+        requires $1 INSTALL_ROOT BATCH_SERVER WN_LIST QUEUES CE_SMPSIZE CE_HOST
+}
+
+
+config_torque_server_setenv_post () {
+
+        ### Auxiliary script parameters
+        GLITE_LOCATION="${INSTALL_ROOT:-opt}/glite"
+
+        yaimgridenv_set GLITE_LOCATION "${GLITE_LOCATION}"
+}
+
+config_torque_server_post () {
+
+echo starting config_torque_server_post
+
+
+/usr/bin/qmgr <<EOF
+
+set server default_queue = longfive
+
+
+set queue expressfive resources_max.cput = 01:00:00
+set queue expressfive resources_max.walltime = 01:30:00
+set queue expressfive resources_default.walltime = 01:30:00
+set queue shortfive resources_max.cput = 12:00:00
+set queue shortfive resources_max.walltime = 18:00:00
+set queue shortfive resources_default.walltime = 18:00:00
+set queue mediumfive resources_max.cput = 24:00:00
+set queue mediumfive resources_max.walltime =36:00:00
+set queue mediumfive resources_default.walltime = 36:00:00
+set queue longfive resources_max.cput = 48:00:00
+set queue longfive resources_max.walltime = 72:00:00
+set queue longfive resources_default.walltime = 72:00:00
+set queue expressfive max_queuable = 200
+set queue expressfive max_running  = 100
+set queue shortfive max_queuable = 3500
+set queue shortfive max_running  = 1400
+set queue mediumfive max_queuable = 3500
+set queue mediumfive max_running  = 1400
+set queue longfive max_queuable = 3500
+set queue longfive max_running  = 1400
+set queue longfive acl_groups += atlaspilot
+set queue longfive acl_groups += lhcbpilot
+set queue longfive acl_groups += cmspilot
+set queue mediumfive acl_groups += atlaspilot
+set queue mediumfive acl_groups += lhcbpilot
+set queue mediumfive acl_groups += cmspilot
+set queue shortfive acl_groups += atlaspilot
+set queue shortfive acl_groups += lhcbpilot
+set queue shortfive acl_groups += cmspilot
+set queue expressfive acl_groups +=opspilot
+
+set server authorized_users += *@t2ce04.physics.ox.ac.uk
+
+
+EOF
+
+return 0
+}
+

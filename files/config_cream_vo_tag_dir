@@ -1,0 +1,3 @@
+function config_cream_vo_tag_dir (){
+ yaimlog INFO " config_cream_vo_tag_dir is disabled. It is a local oxford hack"
+}

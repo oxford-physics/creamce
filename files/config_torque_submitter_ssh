@@ -1,0 +1,152 @@
+##############################################################################
+# Copyright (c) Members of the EGEE Collaboration. 2004.
+# See http://www.eu-egee.org/partners/ for details on the copyright
+# holders.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+##############################################################################
+#
+# NAME :        config_apel pbs
+#
+# DESCRIPTION : This function configures APEL accounting for a pbs/server batch
+#               system.
+#
+# AUTHORS :     Nuno.Orestes.Vaz.da.Silva@cern.ch
+#               Di.Qing@cern.ch
+#
+# NOTES :       ---
+#
+# YAIM MODULE:  glite-yaim-torque-utils
+#
+##############################################################################
+
+config_torque_submitter_ssh_check (){
+
+  requires $1 BATCH_SERVER CE_LIST
+
+}
+
+config_torque_submitter_ssh (){
+
+[ -n "$TORQUE_NO_SSH_KEYSCAN" ] && return
+
+if [ -z "${TORQUE_VAR_DIR}" ]; then
+    yaimlog DEBUG "TORQUE_VAR_DIR not set"
+    if [ -d "/var/lib/torque" ]; then
+      yaimlog DEBUG "Using /var/lib/torque"
+      TORQUE_VAR_DIR="/var/lib/torque"
+    else
+      if [ -d "/var/torque" ]; then
+        yaimlog DEBUG "Using /var/torque"
+        TORQUE_VAR_DIR="/var/torque"
+      else
+         yaimlog ERROR "And not found /var/torque nor /var/lib/torque"
+         exit 1
+      fi
+    fi
+else
+    yaimlog DEBUG "TORQUE_VAR_DIR is set"
+    TORQUE_VAR_DIR=${TORQUE_VAR_DIR}
+fi
+
+
+se_host="${SE_LIST%% *}"
+
+echo $BATCH_SERVER > $TORQUE_VAR_DIR/server_name
+
+SNODES="$BATCH_SERVER $CE_LIST $se_host"
+
+####@ Creates the /etc/edg-pbs-shostsequiv.conf file.
+cat <<EOF > /etc/edg-pbs-shostsequiv.conf
+# Example configuration file for the edg-pbs-shostsequiv script
+# File where the list of nodes will be written 
+SHOSTSEQUIV = /etc/ssh/shosts.equiv
+# List of nodes to be included in the SHOSTSEQUIV file even if not reported 
+# by the pbsnodes command
+NODES       =  $SNODES
+# Location of the pbsnodes command
+PBSBIN      = /usr/bin
+EOF
+
+cron_job edg-pbs-shostsequiv root "05 1,7,13,19 * * * /usr/sbin/edg-pbs-shostsequiv"
+
+/usr/sbin/edg-pbs-shostsequiv
+
+####@ Creates the  /etc/edg-pbs-knownhosts.conf file.
+
+cat <<EOF > /etc/edg-pbs-knownhosts.conf
+NODES = $SNODES
+PBSBIN = /usr/bin
+KEYTYPES = rsa1,rsa,dsa
+KNOWNHOSTS = /etc/ssh/ssh_known_hosts
+EOF
+
+# workaround for duplicate key entries (Savannah bug 5530) for hostname
+for hostname in $SNODES; do
+   if [ -f /etc/ssh/ssh_known_hosts ];then  
+      grep -v $hostname /etc/ssh/ssh_known_hosts  > /etc/ssh/ssh_known_hosts.tmp
+      /usr/bin/ssh-keyscan -t rsa $hostname >> /etc/ssh/ssh_known_hosts.tmp 2>/dev/null
+ 
+      if [ $? = 0 ]; then
+         mv -f /etc/ssh/ssh_known_hosts.tmp  /etc/ssh/ssh_known_hosts
+      fi
+   fi
+done
+
+####@ Creates the 'edg-pbs-knownhosts' cron job.
+
+cron_job edg-pbs-knownhosts root "03 1,7,13,19 * * * /usr/sbin/edg-pbs-knownhosts"
+
+/usr/sbin/edg-pbs-knownhosts
+
+#result=`tail -3 /etc/ssh/sshd_config | grep HostbasedAuthentication | grep yes` 
+#if [ "x$result" = "x" ]; then
+#cat <<EOF >> /etc/ssh/sshd_config
+#        HostbasedAuthentication yes
+#        IgnoreUserKnownHosts yes
+#        IgnoreRhosts yes
+#EOF
+#fi
+
+####@ Install the munge key and start munge
+
+if [ ! -z "$MUNGE_KEY_FILE" ]; then
+    if [ ! -f "$MUNGE_KEY_FILE" ]; then
+	yestr $YEX_NOSUCHFILE
+	yaimlog ERROR "The munge key file $MUNGE_KEY_FILE is not found"
+	exit $YEX_NOSUCHFILE
+    fi
+    if [ ! -f /etc/munge/munge.key ] ; then
+	yaimlog DEBUG "installing $MUNGE_KEY_FILE in /etc/munge/munge.key"
+	cp $MUNGE_KEY_FILE /etc/munge/munge.key
+	chmod 400 /etc/munge/munge.key
+	chown munge /etc/munge/munge.key
+    fi
+fi
+
+if [ ! -f /etc/munge/munge.key ] ; then
+    yaimlog WARNING "The munge key /etc/munge/munge.key does not exist."
+    yaimlog WARNING "Munge is required to submit jobs to the torque server."
+    yaimlog WARNING "Not starting the munge daemon"
+else
+    /etc/init.d/munge start || yaimlog DEBUG "Could not start munge (already running?)"
+    /sbin/chkconfig munge on
+fi
+
+####@ Reload the sshd daemon
+
+/etc/rc.d/init.d/sshd reload
+
+return 0
+}
+
