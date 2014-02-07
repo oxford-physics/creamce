@@ -57,6 +57,7 @@ set queue shortfive acl_groups += atlaspilot
 set queue shortfive acl_groups += lhcbpilot
 set queue shortfive acl_groups += cmspilot
 set queue expressfive acl_groups +=opspilot
+set server mail_domain = never
 
 set server authorized_users += *@t2ce04.physics.ox.ac.uk
 
