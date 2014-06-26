@@ -50,12 +50,15 @@ set queue longfive max_running  = 1400
 set queue longfive acl_groups += atlaspilot
 set queue longfive acl_groups += lhcbpilot
 set queue longfive acl_groups += cmspilot
+set queue longfive acl_groups += alicepilot
 set queue mediumfive acl_groups += atlaspilot
 set queue mediumfive acl_groups += lhcbpilot
 set queue mediumfive acl_groups += cmspilot
+set queue mediumfive acl_groups += alicepilot
 set queue shortfive acl_groups += atlaspilot
 set queue shortfive acl_groups += lhcbpilot
 set queue shortfive acl_groups += cmspilot
+set queue shortfive acl_groups += alicepilot
 set queue expressfive acl_groups +=opspilot
 set server mail_domain = never
 
